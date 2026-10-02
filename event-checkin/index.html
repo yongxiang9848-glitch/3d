@@ -25,6 +25,17 @@ body{background:linear-gradient(180deg,#0c0c0d,#151516);min-height:100vh}
 .notice{padding:10px 12px;border-radius:10px;background:#222;margin:10px 0;font-size:13px}
 #reader{max-width:560px;margin:auto;border-radius:16px;overflow:hidden;background:#111;min-height:80px}
 .pinbox{position:fixed;inset:0;background:#0c0c0df5;display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}.pininner{width:min(92vw,420px)}.hidden{display:none!important}
+.resultModal{position:fixed;inset:0;background:#000c;backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;z-index:80;padding:16px}
+.resultBox{width:min(94vw,520px);background:#171719;border:1px solid #34343a;border-radius:24px;padding:22px;text-align:center;box-shadow:0 24px 80px #0008}
+.resultState{font-size:14px;font-weight:900;letter-spacing:.08em;margin-bottom:10px}
+.resultState.success{color:#7ee2a8}.resultState.duplicate{color:#ffcf70}
+.resultName{font-size:30px;line-height:1.08;font-weight:900;margin:4px 0 16px}
+.tableHero{border-radius:20px;background:#d7ae5f;color:#111;padding:18px 12px;margin:10px 0 16px}
+.tableHero .caption{font-size:13px;font-weight:800;letter-spacing:.12em}.tableHero .number{font-size:68px;line-height:.95;font-weight:950}
+.detailGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:left;margin:12px 0 16px}
+.detailItem{background:#222227;border-radius:14px;padding:12px}.detailLabel{font-size:11px;color:#999;text-transform:uppercase;letter-spacing:.08em}.detailValue{font-size:17px;font-weight:800;margin-top:4px}
+.scanNext{width:100%;padding:16px;font-size:18px;border-radius:14px}
+@media(max-width:520px){.resultName{font-size:26px}.tableHero .number{font-size:58px}.detailGrid{grid-template-columns:1fr}}
 @media(max-width:700px){.grid{grid-template-columns:repeat(2,1fr)}.person{flex-direction:column;align-items:flex-start}.person .btn{width:100%}.brand{font-size:19px}}
 </style>
 </head>
@@ -93,6 +104,24 @@ body{background:linear-gradient(180deg,#0c0c0d,#151516);min-height:100vh}
       </div>
       <div id="importMsg" class="notice">No file selected.</div>
     </div>
+  </div>
+</div>
+
+<div id="resultModal" class="resultModal hidden" role="dialog" aria-modal="true">
+  <div class="resultBox">
+    <div id="resultState" class="resultState success">CHECK-IN SUCCESS</div>
+    <div id="resultName" class="resultName">Guest Name</div>
+    <div class="tableHero">
+      <div class="caption">TABLE</div>
+      <div id="resultTable" class="number">-</div>
+    </div>
+    <div class="detailGrid">
+      <div class="detailItem"><div class="detailLabel">Ticket</div><div id="resultTicket" class="detailValue">-</div></div>
+      <div class="detailItem"><div class="detailLabel">Award</div><div id="resultAward" class="detailValue">-</div></div>
+      <div class="detailItem"><div class="detailLabel">Check-in Time</div><div id="resultTime" class="detailValue">-</div></div>
+      <div class="detailItem"><div class="detailLabel">Status</div><div id="resultStatus" class="detailValue ok">Checked In</div></div>
+    </div>
+    <button class="btn primary scanNext" onclick="closeResultModal()">SCAN NEXT</button>
   </div>
 </div>
 
@@ -173,11 +202,35 @@ async function onScan(text){
   try{
     const r=await api('checkin',{token});
     renderOne(r.attendee,'scanResult',r.already_checked_in);
+    await stopScanner();
+    showResultModal(r.attendee,r.already_checked_in);
     refreshStats();
     if(navigator.vibrate)navigator.vibrate(r.already_checked_in?[80,60,80]:80);
   }catch(e){
     scanResult.innerHTML='<div class="notice no">'+esc(e.message)+'</div>';
   }
+}
+
+function showResultModal(a,dup=false){
+  const state=document.getElementById('resultState');
+  state.textContent=dup?'ALREADY CHECKED IN':'CHECK-IN SUCCESS';
+  state.className='resultState '+(dup?'duplicate':'success');
+  document.getElementById('resultName').textContent=a.name||'-';
+  document.getElementById('resultTable').textContent=a.table_no||'-';
+  document.getElementById('resultTicket').textContent=a.ticket_no||'-';
+  document.getElementById('resultAward').textContent=a.award_category||'General Guest';
+  document.getElementById('resultTime').textContent=a.checked_in_at?new Date(a.checked_in_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}):'-';
+  const status=document.getElementById('resultStatus');
+  status.textContent=dup?'Already Checked In':'Checked In';
+  status.className='detailValue '+(dup?'duplicate':'ok');
+  document.getElementById('resultModal').classList.remove('hidden');
+}
+function closeResultModal(){
+  document.getElementById('resultModal').classList.add('hidden');
+  document.getElementById('scanResult').innerHTML='';
+  lastScan='';
+  lastScanAt=0;
+  startScanner();
 }
 
 function personHtml(a,dup=false){
